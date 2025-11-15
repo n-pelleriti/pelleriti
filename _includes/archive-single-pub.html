@@ -1,9 +1,9 @@
 {% include base_path %}
 
 {% if post.id %}
-  {% assign title = post.title | markdownify | remove: "<p>" | remove: "</p>" %}
+{% assign title = post.title | markdownify | remove: "<p>" | remove: "</p>" %}
 {% else %}
-  {% assign title = post.title %}
+{% assign title = post.title %}
 {% endif %}
 
 <div class="publication-item">
@@ -11,39 +11,39 @@
     <div class="publication-image">
       <a href="{{ base_path }}{{ post.url }}" rel="permalink">
         {% if post.image %}
-          <img src="{{ post.image }}" alt="{{ title }}">
+        <img src="{{ post.image }}" alt="{{ title }}">
         {% else %}
-          <img src="/images/paper-default.png" alt="{{ title }}">
+        <img src="/images/paper-default.png" alt="{{ title }}">
         {% endif %}
       </a>
     </div>
-    
+
     <div class="publication-content">
       <h3 class="publication-title">
         <a href="{{ base_path }}{{ post.url }}" rel="permalink">{{ title }}</a>
       </h3>
-      
+
       <p class="publication-authors">{{ post.authors }}</p>
-      
+
       <p class="publication-venue">
         <i>{{ post.venue }}</i>, {{ post.date | default: "1900-01-01" | date: "%Y" }}
       </p>
-      
+
       <div class="publication-actions">
         <div class="publication-links">
           {% if post.bibtex %}
-            <details class="bibtex-details">
-              <summary class="btn btn--small btn--primary">BIB</summary>
-            </details>
+          <details class="bibtex-details">
+            <summary class="btn btn--small btn--primary">BIB</summary>
+          </details>
           {% endif %}
           {% if post.paperurl %}
-            <a href="{{ post.paperurl }}" class="btn btn--small btn--primary" target="_blank">PDF</a>
+          <a href="{{ post.paperurl }}" class="btn btn--small btn--primary" target="_blank">PDF</a>
           {% endif %}
           {% if post.codeurl %}
-            <a href="{{ post.codeurl }}" class="btn btn--small btn--info" target="_blank">Code</a>
+          <a href="{{ post.codeurl }}" class="btn btn--small btn--info" target="_blank">Code</a>
           {% endif %}
         </div>
-        
+
         {% if post.bibtex %}
         <div class="publication-bibtex">
           <pre><code>{{ post.bibtex }}</code></pre>
@@ -53,4 +53,3 @@
     </div>
   </article>
 </div>
-
