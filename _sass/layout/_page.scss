@@ -105,6 +105,13 @@
     margin-top: -1.5em;
     padding-left: 1.25rem;
   }
+
+  /* images with rounded corners */
+  img {
+    border-radius: $border-radius;
+    -webkit-transition: $global-transition;
+    transition: $global-transition;
+  }
 }
 
 .page__hero {
@@ -398,4 +405,99 @@
   margin-bottom: 10px;
   font-size: $type-size-6;
   text-transform: uppercase;
+}
+
+
+/*
+   Blog post figure utilities
+   ========================================================================== */
+
+/* Width utilities for figures */
+.fig-50 {
+  max-width: 50%;
+  margin: 2em auto;
+  display: block;
+  
+  img {
+    width: 100%;
+    height: auto;
+  }
+}
+
+.fig-60 {
+  max-width: 60%;
+  margin: 2em auto;
+  display: block;
+  
+  img {
+    width: 100%;
+    height: auto;
+  }
+}
+
+.fig-75 {
+  max-width: 75%;
+  margin: 2em auto;
+  display: block;
+  
+  img {
+    width: 100%;
+    height: auto;
+  }
+}
+
+.fig-80 {
+  max-width: 80%;
+  margin: 2em auto;
+  display: block;
+  
+  img {
+    width: 100%;
+    height: auto;
+  }
+}
+
+/* White background for schematics/diagrams */
+.fig-white-bg img {
+  background-color: #fff;
+  padding: 1em;
+  border-radius: $border-radius;
+}
+
+/* Side-by-side figures */
+.fig-side-by-side {
+  display: flex;
+  gap: 1.5em;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: center;
+  margin: 2em auto;
+  
+  .subfig {
+    flex: 1;
+    min-width: 200px;
+    text-align: center;
+    
+    img {
+      width: 100%;
+      height: auto;
+    }
+    
+    .sublabel {
+      font-weight: 600;
+      margin-bottom: 0.3em;
+    }
+  }
+  
+  figcaption {
+    flex-basis: 100%;
+    text-align: center;
+    margin-top: 1em;
+  }
+}
+
+.fig-side-by-side.fig-white-bg .subfig img {
+  background-color: #fff;
+  padding: 1em;
+  border-radius: $border-radius;
 }
