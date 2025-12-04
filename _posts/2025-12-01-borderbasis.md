@@ -8,7 +8,7 @@ tags:
   - Border Basis
 ---
 
-*This post accompanies our paper accepted at **NeurIPS 2025**: [Computational Algebra with Attention: Transformer Oracles for Border Basis Algorithms](https://arxiv.org/abs/2512.00054)*
+*This post accompanies our paper accepted at **NeurIPS 2025**: [Computational Algebra with Attention: Transformer Oracles for Border Basis Algorithms](https://arxiv.org/abs/2505.23696)*
 
 Many problems in cryptography, robotics, and optimization reduce to solving systems of polynomial equations. Unlike linear systems, where Gaussian elimination provides efficient $O(n^3)$ solutions, polynomial systems present considerably greater computational challenges: 
 complexity grows exponentially with degree, 
@@ -22,7 +22,7 @@ Our approach delivers speedups of up to 3.5× over the state-of-the-art, without
 
 Many computational problems across science and engineering reduce to solving *polynomial* systems—equations such as $x^2 + y^2 = 1$ and $xy = 0.5$. While linear systems admit efficient solutions via Gaussian elimination, polynomial systems are considerably more complex. The computational cost grows exponentially with the degree of the polynomials, and classical algorithms dedicate the majority of their runtime to computations that, in retrospect, contribute nothing to the final solution.
 
-This motivates our central question: can we predict which computations will be useful before performing them? We address this by training a Transformer to serve as an oracle, guiding the classical _Border Basis Algorithm_ to skip redundant work while preserving correctness.
+This motivates our central question: can we predict which computations will be useful before performing them? We address this by training a Transformer to serve as an oracle, guiding the classical _Border Basis Algorithm_ [1] to skip redundant work while preserving correctness.
 
 ## Background: From Gaussian Elimination to Border Bases
 
@@ -36,13 +36,14 @@ One important constraint is that the BBA only applies to systems with *finitely 
 
 ## The Border Basis Algorithm
 
-The core operation of the BBA mirrors Gaussian elimination: maintain a set of basis polynomials and systematically extend it by combining polynomials to eliminate terms. However, unlike linear systems, polynomial systems require working **degree by degree**—starting with low-degree polynomials, then progressively considering higher degrees until the basis stabilizes. The number of potential combinations grows rapidly with each degree, leading to a potentially enormous number of reductions.
+The core operation of the BBA mirrors Gaussian elimination: maintain a set of basis polynomials and systematically extend it by combining polynomials to eliminate terms. However, unlike linear systems, polynomial systems require working **degree by degree**—starting with low-degree polynomials, then progressively considering higher degrees until the basis _stabilizes_. 
 
-## Computational Redundancy in Polynomial Algebra
+Since the algorithm operates degree by degree, at any given iteration we only consider polynomials up to some maximum degree $d$. This defines the current **computational universe** $\mathcal{L}$—the set of all monomials up to degree $d$. For example, with two variables $x$ and $y$ at degree 2, the universe is $\mathcal{L} = \\{1, x, y, x^2, xy, y^2\\}$. The algorithm maintains a **generator set** $\mathcal{V}$ of polynomials with distinct leading terms, tracking only polynomials that lie entirely within $\mathcal{L}$; terms outside this set are deferred to later iterations.
 
-A linear system can be overdetermined: some equations are linear combinations of others. In Gaussian elimination, this manifests as rows that reduce to zero—redundant equations that, if identified in advance, could simply be omitted.
-
-In the Border Basis Algorithm, an analogous phenomenon occurs at considerably larger scale. Since the algorithm operates degree by degree, at any given iteration we only consider polynomials up to some maximum degree $d$. This defines the current **computational universe** $\mathcal{L}$—the set of all monomials up to degree $d$. For example, with two variables $x$ and $y$ at degree 2, the universe is $\mathcal{L} = \\{1, x, y, x^2, xy, y^2\\}$. The algorithm maintains a **generator set** $\mathcal{V}$ of polynomials with distinct leading terms, tracking only polynomials that lie entirely within $\mathcal{L}$; terms outside this set are deferred to later iterations.
+<figure class="fig-white-bg">
+  <img src="/images/blogpost_figures/BorderBasisAlgo-1.png" alt="Border Basis Algorithm Visualization">
+  <figcaption>Border basis concepts: (a) A border basis with border terms \(\{y^2,xy,x\}\). (b) BBA's iterative expansion of \(\mathcal{V}\), showing leading terms: two initial polynomials yield four expansions, then eight more - though only two out of twelve were necessary. (c) The oracle approach achieves the same result with just four targeted expansions.</figcaption>
+</figure>
 
 At each iteration, the algorithm proceeds as follows:
 
@@ -52,7 +53,7 @@ At each iteration, the algorithm proceeds as follows:
 
 A candidate polynomial **extends the basis** if, after reduction, it produces a non-zero polynomial that was not already expressible as a combination of existing basis elements. If it reduces to zero, it was redundant—merely a consequence of polynomials already present.
 
-In practice, many candidates are redundant: they reduce to zero and contribute nothing new. Reducing these unnecessary candidates is computationally costly and dominates the algorithm's runtime.
+On the other hand, we call $\mathcal{V}$ an $\mathcal{L}$-stable span, if after the filtering, no polynomial is retained. 
 
 ### A Worked Example
 
@@ -84,68 +85,56 @@ $$\mathcal{V} \leftarrow \{x - 1,\; x^2 + y^2 - 1,\; y^2 + x - 1,\; xy - y\}$$
 
 Of 4 candidates, only 2 were useful; the remaining 2 fell outside the current scope. This was a minimal example—as problems grow, the ratio of redundant to useful reductions becomes substantially worse. In Gaussian elimination, redundant rows reduce to zero; in border basis computation, the *majority* of generated candidates reduce to zero.
 
-<figure class="fig-white-bg">
-  <img src="/images/blogpost_figures/BorderBasisAlgo-1.png" alt="Border Basis Algorithm Visualization">
-  <figcaption>Border basis concepts: (a) A border basis with border terms \(\{y^2,xy,x\}\). (b) BBA's iterative expansion of \(\mathcal{V}\), showing leading terms: two initial polynomials yield four expansions, then eight more - though only two out of twelve were necessary. (c) The oracle approach achieves the same result with just four targeted expansions.</figcaption>
-</figure>
 
-While the underlying linear algebra phenomenon—linear dependence—is the same, the ratio of redundant to useful candidates is substantially worse in the polynomial setting. The computational universe of possible expansions grows combinatorially, yet the informative directions—new basis elements that survive reduction—are sparse. Despite this, we pay the full cost of generating and reducing every candidate, only to discover that most were unnecessary.
+### Computational Redundancy in the Border Basis algorithm
+
+A linear system can be overdetermined: some equations are linear combinations of others. 
+In Gaussian elimination, this appears as rows that reduce to zero—redundant equations that, if identified in advance, could simply be omitted.
+
+The Border Basis Algorithm suffers from the same redundancy at a far worse ratio. The space of candidate expansions grows combinatorially, yet the survivors—polynomials that remain nonzero after reduction—are sparse. We pay the full cost of generating and reducing every candidate, only to learn that most were unnecessary.
 
 This is precisely the inefficiency our Transformer oracle addresses.
 
 ## A Neural Oracle for Expansion Selection
 
-Rather than exhaustively expanding all candidates and discovering afterward that most reduce to zero, we predict in advance which expansions are likely to yield new basis elements.
+Rather than exhaustively expanding all candidates and discovering afterward that most reduce to zero, we predict in advance which expansions are likely to extend the basis. We train a Transformer that takes the current polynomial set $\mathcal{V}$ and monomial universe $\mathcal{L}$ as input, and outputs a subset $\mathcal{C} \subseteq \mathcal{V}^+$ of expansions predicted to survive reduction and filtering.
 
-We train a Transformer to serve as an oracle that examines the current polynomial set and predicts which expansions will produce non-zero results after Gaussian elimination. Instead of computing all expansions and discarding most, we compute only those the oracle recommends.
+The Border Basis Algorithm operates degree-by-degree, so each iteration provides a natural training example: given $\mathcal{V}$ and $\mathcal{L}$, we record which expansions survived. Running the algorithm once yields a full dataset of minimal expansions. 
 
-Recall that the Border Basis Algorithm operates **degree-by-degree**: at each iteration, we consider polynomials within a fixed monomial space, then expand to include higher degrees. This iterative structure provides a natural mechanism for collecting training data—we record which expansions produced non-zero results at each step during standard algorithm execution.
+Of course, a neural network can miss crucial expansions. But border bases are far easier to verify than to compute—so we check the result and fall back to the standard algorithm if needed. This gives us the best of both worlds:
 
-### Maintaining Correctness
+- Accurate predictions → maximum speedup
+- False positives → additional overhead from extra reductions
+- False negatives → verification fails, fallback to full expansion 
 
-A critical feature of our approach is that it **preserves correctness guarantees**. 
-Border bases have a natural criteria that makes them typically much easier to verify than compute [1].
-If verification fails—indicating that the oracle's predictions were insufficient—we fall back to the standard algorithm. This means:
+## Tokenizing Polynomials
 
-- If the oracle makes accurate predictions: maximum speedup is achieved
-- If the oracle makes errors: verification detects this and triggers recovery
-- The algorithm always terminates with a provably correct result
-
-## Technical Contributions
-
-### Efficient Monomial Embedding
-
-Polynomials can contain thousands of terms, leading to extremely long token sequences under standard representations. Consider encoding a polynomial such as $x + 2$ for a Transformer. A naive approach tokenizes each component separately—the coefficient, each variable's exponent, and operators between terms:
+Polynomials can contain thousands of terms. A naive tokenization—one token per coefficient, one per exponent, plus operators—blows up quickly. Even $x + 2$ becomes seven tokens:
 
 ```
 C1, E1, E0, +, C2, E0, E0
 ```
 
-This yields 7 tokens for just two terms. For a polynomial with $n$ variables, each term requires $(n+1)$ tokens (one for the coefficient, one exponent per variable), plus operators and separators. This quickly becomes prohibitive for larger problems.
+With $n$ variables, each term costs $(n+1)$ tokens. This is prohibitive.
 
-We developed a **monomial-level embedding** that encodes each term as a single token. Rather than decomposing a term such as $3x^2y$ into separate tokens for the coefficient (3), the $x$-exponent (2), and the $y$-exponent (1), we combine this information into one embedding vector:
+We encode each term as a single token. Instead of breaking $3x^2y$ into separate tokens for the coefficient and each exponent, we combine everything into one embedding:
 
-$$\text{embed}(\text{term}) = \text{embed}_{\text{coef}}(c) + \text{embed}_{\text{exponents}}(a_1, \ldots, a_n) + \text{embed}_{\text{separator}}$$
+$$\text{embed}(\text{term}) = \text{embed}_{\text{coef}}(c) + \frac{1}{n} \sum_{i=1}^n \text{embed}_{\text{var}_i}(a_i) + \text{embed}_{\text{sep}}$$
 
-The exponent embedding aggregates information from all variables:
-
-$$\text{embed}_{\text{exponents}}(a_1, \ldots, a_n) = \frac{1}{n} \sum_{i=1}^n \text{embed}_{\text{var}_i}(a_i)$$
-
-This design aligns with the structure of polynomial algebra, which is fundamentally **term-centric**: when combining polynomials, we match terms with identical monomial structure. By embedding each term as a single token, the Transformer's attention mechanism can directly compare terms across polynomials, rather than first determining which clusters of tokens belong together.
+This matches how polynomial algebra actually works: operations combine terms with matching monomial structure. With one token per term, attention can directly compare terms across polynomials instead of first figuring out which token clusters belong together.
 
 <figure class="fig-white-bg fig-75">
   <img src="/images/blogpost_figures/token_count.png" alt="Token Efficiency">
-  <figcaption>The term truncation and monomial embedding significantly reduce input size.</figcaption>
+  <figcaption>Term-level embedding plus truncation dramatically reduce input size.</figcaption>
 </figure>
 
-This embedding reduces token count by a factor of $\mathcal{O}(n)$ for $n$-variable polynomials, enabling us to handle substantially larger problems within the Transformer's context window.
-In addition, we only provide the Transformer with the first $k$ leading terms of the polynomials in $\mathcal{V}$, since those typically determine which terms get eliminated. By combining these strategies, we can dramatically shorten the input sequences.
+We also truncate to the first $k$ leading terms of each polynomial—these typically determine which expansions survive. Together, these choices cut token count by $\mathcal{O}(n)$ and let us handle much larger systems.
 
-### Training Data Generation
+## Generating Training Data
 
-Generating appropriate training data for polynomial algebra presents its own challenges. Recall that the BBA only applies to systems with finitely many solutions. Random sampling of polynomials almost never produces such systems—most random polynomial combinations have either no solutions or infinitely many.
+The BBA only applies to systems with finitely many solutions. Random polynomials almost never have this property—they have either no solutions or infinitely many.
 
-We address this by **sampling in reverse**: rather than hoping random polynomials happen to possess the required structure, we begin with a known valid border basis (which by definition corresponds to a system with finitely many solutions), then apply random transformations to create diverse training examples while preserving the essential algebraic structure.
+We sample in reverse: start with a valid border basis (which by definition has finitely many solutions), then apply random transformations to generate diverse examples while preserving the algebraic structure.
 
 ## Experimental Results
 
@@ -156,7 +145,8 @@ We evaluate on randomly generated polynomial systems over finite fields—a sett
   <figcaption>Runtime comparison (log scale) across different problem configurations. OBBA consistently outperforms the baseline BBA, with speedups increasing for more challenging problems.</figcaption>
 </figure>
 
-Of particular interest, the oracle exhibits **strong out-of-distribution generalization**. Models trained exclusively on degree-2 polynomials successfully accelerate computations on degree-3 and degree-4 problems—instances 10–100× harder than anything encountered during training. This suggests the Transformer learns structural properties of useful expansions rather than merely pattern-matching on the training distribution.
+Crucially, the oracle generalizes well beyond its training distribution. Models trained exclusively on degree-2 polynomials successfully accelerate degree-3 and degree-4 problems—instances 10–100× harder than anything seen during training. This means we can generate training data cheaply by solving easy problems, then deploy the trained model on problems that are significantly harder. 
+
 
 <figure class="fig-white-bg">
   <img src="/images/blogpost_figures/ood_speedup-1.png" alt="Out-of-Distribution Performance">
@@ -167,7 +157,7 @@ Of particular interest, the oracle exhibits **strong out-of-distribution general
 
 ### Numerical Results
 
-For 5-variable polynomial systems over $\mathbb{F}_{32003}$ (a prime field commonly used in computational algebra):
+For 5-variable polynomial systems over $\mathbb{F}_{31}$ (a prime field commonly used in computational algebra):
 
 | Degree | Baseline BBA | Our Method | Speedup |
 |:------:|:------------:|:----------:|:-------:|
@@ -177,32 +167,19 @@ For 5-variable polynomial systems over $\mathbb{F}_{32003}$ (a prime field commo
 
 The out-of-distribution results are notable: problems significantly harder than anything in training, yet the oracle still achieves greater than 20× speedup. When the oracle does make prediction errors, the verification step detects them and triggers fallback—correctness is never compromised.
 
-## Limitations
+## What's Missing
 
-**Variable count.** We demonstrate results for up to 5 variables. Scaling to higher-dimensional systems will require larger models and more sophisticated training strategies.
+We only go up to 5 variables over finite fields. Scaling further will likely need larger models and different training techniques. While out-of-distribution generalization is strong, it has limits—push too far from the training distribution and the oracle starts missing expansions. The algorithm stays correct (fallback kicks in), but speedups shrink.
 
-**Oracle accuracy on difficult problems.** While out-of-distribution generalization is strong, there are limits. On problems far outside the training distribution, the oracle's precision decreases and more fallbacks are triggered. The algorithm remains correct, but speedups diminish.
+## Looking Ahead
 
-## Conclusion and Outlook
+Polynomial systems can encode many of the hardest problems in computation: classic NP-hard problems such as MAX-CUT can be written as polynomial optimization tasks. At the same time, polynomial constraints are often far more expressive than linear ones—some feasible sets that require exponentially many linear inequalities admit succinct descriptions with only a few polynomial equations. By designing a tokenizer that exploits this algebraic structure, we obtain highly compressed representations that fit within Transformer-scale context windows.
 
-This work establishes a connection between neural prediction and classical computational algebra. The Oracle Border Basis Algorithm demonstrates that learned oracles can significantly accelerate symbolic computation while preserving correctness guarantees.
-
-Our primary contributions are:
-
-1. **Guaranteed correctness**: The fallback mechanism ensures the algorithm always produces the correct answer
-2. **Efficient representation**: Monomial embeddings reduce token counts by a factor of $O(n)$
-3. **Data-efficient training**: Reverse sampling generates diverse, valid training instances
-4. **Strong generalization**: Models transfer effectively to harder problems than those seen during training
-
-
-Longer-term directions include:
-- **Larger variable counts** via hierarchical or sparse attention mechanisms
-- **Infinite fields** ($\mathbb{Q}$, $\mathbb{R}$) with appropriate numerical handling
-- **Integration with computer algebra systems** such as Macaulay2 or Singular
+This approach extends in principle to **polynomial optimization** and **numerical root-finding**—tools that play central roles in robotics, computer vision, and combinatorial optimization. The general pattern is to use learned predictions to guide and prune a classical algorithm’s search, while retaining a fast verification step so that any accepted solution comes with a clear correctness certificate. Border bases provided a clean first testbed; the broader opportunity lies wherever hard problems admit compact encodings together with efficient verification.
 
 ---
 
-**Paper:** [Computational Algebra with Attention: Transformer Oracles for Border Basis Algorithms](https://arxiv.org/abs/2512.00054) (NeurIPS 2025)
+**Paper:** [Computational Algebra with Attention: Transformer Oracles for Border Basis Algorithms](https://arxiv.org/abs/2505.23696) (NeurIPS 2025)
 
 **Code:** [github.com/HiroshiKERA/OracleBorderBasis](https://github.com/HiroshiKERA/OracleBorderBasis)
 
@@ -215,7 +192,7 @@ Longer-term directions include:
       eprint={2512.00054},
       archivePrefix={arXiv},
       primaryClass={cs.LG},
-      url={https://arxiv.org/abs/2512.00054}, 
+      url={https://arxiv.org/abs/2505.23696}, 
 }
 ```
 
