@@ -10,23 +10,28 @@ tags:
 
 *This post accompanies our paper accepted at **NeurIPS 2025**: [Computational Algebra with Attention: Transformer Oracles for Border Basis Algorithms](https://arxiv.org/abs/2505.23696)*
 
-Many problems in cryptography, robotics, and optimization reduce to solving systems of polynomial equations. Unlike linear systems, where Gaussian elimination provides efficient $O(n^3)$ solutions, polynomial systems present considerably greater computational challenges: 
-complexity grows exponentially with degree, 
-and traditional algorithms often spend a lot of effort on calculations that turn out not to matter in the end.
-In this work, we introduce the **Oracle Border Basis Algorithm (OBBA)**, a neural-guided approach that predicts which computations will contribute to the solution. 
-Our approach delivers speedups of up to 3.5× over the state-of-the-art, without compromising reliability: every result is rigorously verified, and if any prediction is incorrect, a proven fallback mechanism guarantees correctness.
+Many problems in cryptography, robotics, and optimization reduce to solving polynomial equations. Gaussian elimination handles linear systems in $O(n^3)$, but polynomial systems are another story: complexity explodes with degree, and classical algorithms burn most of their runtime on calculations that end up contributing nothing. We introduce the **Oracle Border Basis Algorithm (OBBA)**, which uses a Transformer to predict which computations actually matter—achieving speedups of up to 3.5× while guaranteeing correctness through verified fallback.
 
 ---
 
 ## Polynomial System Solving and Its Challenges
 
-Many computational problems across science and engineering reduce to solving *polynomial* systems—equations such as $x^2 + y^2 = 1$ and $xy = 0.5$. While linear systems admit efficient solutions via Gaussian elimination, polynomial systems are considerably more complex. The computational cost grows exponentially with the degree of the polynomials, and classical algorithms dedicate the majority of their runtime to computations that, in retrospect, contribute nothing to the final solution.
+A polynomial system is a collection of equations like
+$x^2 + y^2 = 1$ and $xy = 0.5$ in several variables. The goal is to
+describe all common solutions. For linear systems, Gaussian elimination
+does this efficiently and with very little wasted work. For polynomial
+systems, the analogous algorithms are far more expensive: the number of
+candidate terms and intermediate polynomials grows exponentially, and most
+of them turn out to be redundant in hindsight.
 
-This motivates our central question: can we predict which computations will be useful before performing them? We address this by training a Transformer to serve as an oracle, guiding the classical _Border Basis Algorithm_ [1] to skip redundant work while preserving correctness.
+Our work focuses on this redundancy. We ask whether it is possible to
+predict, before doing any heavy algebra, which computations are likely
+to be useful—and then use those predictions to steer a classical
+algorithm without sacrificing correctness.
 
 ## Background: From Gaussian Elimination to Border Bases
 
-To provide intuition, recall that Gaussian elimination offers a systematic route to **row echelon form** in linear algebra, simplifying linear systems to a point where solutions become directly accessible. The Border Basis Algorithm (BBA) pursues an analogous goal in the polynomial setting, producing a **border basis**—a structured, canonical representation that encodes all solutions to a polynomial system.
+To provide intuition, recall that Gaussian elimination offers a systematic route to **row echelon form** in linear algebra, simplifying linear systems to a point where solutions become directly accessible. The Border Basis Algorithm (BBA) [1] pursues an analogous goal in the polynomial setting, producing a **border basis**—a structured, canonical representation that encodes all solutions to a polynomial system.
 
 A border basis plays a role in polynomial algebra reminiscent of row echelon form in linear algebra. Just as each row in echelon form has a distinct pivot variable, each polynomial in a border basis has a distinct leading monomial such as $x^2$. Together, these polynomials generate an *ideal*—the algebraic structure encoding all solutions to the original system.
 
@@ -128,7 +133,7 @@ This matches how polynomial algebra actually works: operations combine terms wit
   <figcaption>Term-level embedding plus truncation dramatically reduce input size.</figcaption>
 </figure>
 
-We also truncate to the first $k$ leading terms of each polynomial—these typically determine which expansions survive. Together, these choices cut token count by $\mathcal{O}(n)$ and let us handle much larger systems.
+We also truncate to the first $k$ leading terms of each polynomial—these typically determine which expansions survive. Together, these choices drastically cut token count and let us handle much larger systems.
 
 ## Generating Training Data
 
@@ -175,7 +180,7 @@ We only go up to 5 variables over finite fields. Scaling further will likely nee
 
 Polynomial systems can encode many of the hardest problems in computation: classic NP-hard problems such as MAX-CUT can be written as polynomial optimization tasks. At the same time, polynomial constraints are often far more expressive than linear ones—some feasible sets that require exponentially many linear inequalities admit succinct descriptions with only a few polynomial equations. By designing a tokenizer that exploits this algebraic structure, we obtain highly compressed representations that fit within Transformer-scale context windows.
 
-This approach extends in principle to **polynomial optimization** and **numerical root-finding**—tools that play central roles in robotics, computer vision, and combinatorial optimization. The general pattern is to use learned predictions to guide and prune a classical algorithm’s search, while retaining a fast verification step so that any accepted solution comes with a clear correctness certificate. Border bases provided a clean first testbed; the broader opportunity lies wherever hard problems admit compact encodings together with efficient verification.
+This approach extends in principle to **polynomial optimization** and **numerical root-finding**—tools that play central roles in robotics, computer vision, and combinatorial optimization. The general pattern is to use learned predictions to guide and prune a classical algorithm’s search, while retaining a fast verification step so that any accepted solution comes with a clear correctness certificate. Border bases are a clean first testbed. The more interesting story is broader: wherever a hard problem has a compact algebraic encoding and a fast verifier, there’s an opportunity to drop in a learned oracle.
 
 ---
 
@@ -189,7 +194,7 @@ This approach extends in principle to **polynomial optimization** and **numerica
       author={Hiroshi Kera and Nico Pelleriti and Yuki Ishihara and Max Zimmer and Sebastian Pokutta},
       year={2025},
       booktitle={Advances in Neural Information Processing Systems (NeurIPS)},
-      eprint={2512.00054},
+      eprint={2505.23696},
       archivePrefix={arXiv},
       primaryClass={cs.LG},
       url={https://arxiv.org/abs/2505.23696}, 
